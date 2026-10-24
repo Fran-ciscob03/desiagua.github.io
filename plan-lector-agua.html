@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>El poder del agua</title>
+<!-- Única librería externa: Google Fonts. Chewy se parece a Lazydog (redondeada y juguetona) -->
+<link href="https://fonts.googleapis.com/css2?family=Chewy&family=Fredoka:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================
+   1. COLORES Y FUENTES  (cambia aquí y cambia toda la página)
+   ============================================================ */
+:root {
+  --fondo:  #eafaff;   /* celeste muy claro */
+  --cian:   #00bcf2;   /* cian */
+  --azul:   #0070c0;   /* azul */
+  --texto:  #000000;   /* texto negro */
+
+  /* Fuente de los títulos: para usar otra, cámbiala aquí y en el <link> de arriba */
+  --f-titulo: 'Chewy', 'Comic Sans MS', cursive;
+  --f-texto:  'Fredoka', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--f-texto);
+  color: var(--texto);
+  background: var(--fondo);
+  /* una sola pantalla, sin scroll (se proyecta en TV) */
+  display: flex; flex-direction: column;
+  height: 100vh; height: 100dvh; overflow: hidden;
+}
+h1, h2, h3 { font-family: var(--f-titulo); font-weight: 400; margin: 0; letter-spacing: .03em; }
+button { font-family: inherit; cursor: pointer; }
+
+/* ============================================================
+   2. ESCENARIO Y PANTALLAS (diapositivas)
+   Cada pantalla mide 1280 px de ancho; el código la escala
+   para que ocupe bien el televisor.
+   ============================================================ */
+#stage { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+.slide {
+  position: absolute; left: 50%; top: 50%;
+  display: none;                       /* solo la pantalla activa se ve */
+  transform-origin: center center;
+  text-align: center;
+}
+.slide.on { display: flow-root; }
+
+/* ============================================================
+   3. BARRA INFERIOR: anterior / puntos / siguiente
+   ============================================================ */
+footer {
+  flex: none; display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; padding: 10px 40px; position: relative; z-index: 2;
+}
+.nav-mid { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: .9rem; }
+#dots { display: flex; gap: 10px; }
+.dot { width: 14px; height: 14px; padding: 0; border-radius: 50%; border: 2px solid var(--azul); background: transparent; }
+.dot.on { background: var(--azul); }
+.btn {
+  background: var(--azul); color: #fff; border: none; border-radius: 12px;
+  padding: 10px 22px; font-size: 1.1rem; font-weight: 500;
+}
+.btn:hover { background: #005a9c; }
+.btn[disabled] { opacity: .35; cursor: default; }
+
+/* ============================================================
+   4. PANTALLA 1: PORTADA
+   Todo está colocado con "left / top" dentro de un cuadro de 1280 x 620.
+   Orden de capas (de atrás hacia adelante): burbujas y olas → botella y vaso → letrero.
+   ============================================================ */
+.portada { width: 1280px; height: 620px; position: relative; overflow: hidden; }
+
+/* ---- 4.1 Burbujas que suben lento ----
+   Cada burbuja se define en el HTML con tres datos:
+   --x = posición horizontal, --s = tamaño, --t = segundos que tarda en subir, --d = retraso (negativo = ya va subiendo) */
+.burbuja {
+  position: absolute; left: var(--x); bottom: -90px;
+  width: var(--s); height: var(--s); border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #ffffff, rgba(179, 229, 249, .45));
+  border: 3px solid rgba(0, 188, 242, .35);
+  animation: subir var(--t) linear var(--d) infinite;
+  pointer-events: none;
+}
+@keyframes subir {
+  0%   { transform: translate(0, 0);        opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translate(35px, -740px); opacity: 0; }
+}
+
+/* ---- 4.2 Olas del fondo que se mueven suave ----
+   Cada ola es una imagen pequeña (un "azulejo") que se repite y se desliza de lado.
+   Los colores van dentro de la imagen: #b3e5f9 = celeste claro, #00bcf2 = cian (se escriben como %23...). */
+.ola { position: absolute; left: 0; right: 0; bottom: 0; height: 90px; background-repeat: repeat-x; pointer-events: none; }
+.ola.atras {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 90'%3E%3Cpath d='M0 40 Q80 10 160 40 T320 40 V90 H0 Z' fill='%23b3e5f9'/%3E%3C/svg%3E");
+  background-size: 320px 90px;
+  animation: mover-atras 9s linear infinite;
+}
+.ola.frente {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 90'%3E%3Cpath d='M0 62 Q100 38 200 62 T400 62 V90 H0 Z' fill='%2300bcf2'/%3E%3C/svg%3E");
+  background-size: 400px 90px;
+  animation: mover-frente 7s linear infinite;
+}
+@keyframes mover-atras  { from { background-position-x: 0; } to { background-position-x: 320px; } }
+@keyframes mover-frente { from { background-position-x: 0; } to { background-position-x: -400px; } }
+
+/* ---- 4.3 Botella a la izquierda (se llena al tocarla) ---- */
+#botella {
+  position: absolute; left: 50px; top: 25px; width: 280px; height: 560px;
+  cursor: pointer; transform-origin: 50% 100%;   /* al moverse, "pivotea" desde la base */
+}
+#botella svg { width: 100%; height: 100%; overflow: visible; }
+/* El agua es un bloque que sube: translateY(400px) = vacía, translateY(110px) = llena */
+#agua { transform: translateY(400px); transition: transform 1.6s ease-in-out; }
+#botella.llena #agua { transform: translateY(110px); }
+/* Las olitas de la superficie se deslizan sin parar (50 = ancho de una onda, así no se nota el salto) */
+.olitas { animation: olear 1.8s linear infinite; }
+@keyframes olear { from { transform: translateX(0); } to { transform: translateX(-50px); } }
+/* Al tocar la botella se tambalea un poco */
+#botella.mueve { animation: tambalear .55s ease-in-out 3; }
+@keyframes tambalear {
+  0%, 100% { transform: rotate(0deg); }
+  25%      { transform: rotate(-4deg); }
+  75%      { transform: rotate(4deg); }
+}
+
+/* Letrero "toca la botella" (desaparece cuando la botella se llena) */
+.pista {
+  position: absolute; left: 440px; top: 470px; width: 760px; text-align: center;
+  font-size: 1.5rem; color: var(--azul); font-weight: 600;
+  animation: rebote 1.2s ease-in-out infinite alternate;
+}
+@keyframes rebote { from { transform: translateY(0); } to { transform: translateY(8px); } }
+#botella.llena ~ .pista { display: none; }
+
+/* ---- 4.4 Vaso con agua (delante de la botella) ---- */
+.vaso { position: absolute; left: 250px; top: 290px; width: 190px; height: 316px; pointer-events: none; }
+.vaso svg { width: 100%; height: 100%; overflow: visible; }
+.salpicadura { animation: salpicar 1.6s ease-in-out infinite alternate; transform-origin: 60px 50px; }
+@keyframes salpicar { from { transform: scale(1) rotate(-3deg); } to { transform: scale(1.08) rotate(3deg); } }
+
+/* ---- 4.5 Flecha punteada hacia el letrero ---- */
+.flecha { position: absolute; left: 335px; top: 190px; width: 110px; height: 70px; pointer-events: none; }
+
+/* ---- 4.6 Letrero del título (pergamino) a la derecha ---- */
+.cartel {
+  position: absolute; left: 470px; top: 160px; width: 700px; height: 140px;
+  background: #fff; border-top: 4px solid var(--azul); border-bottom: 4px solid var(--azul);
+  display: flex; align-items: center; justify-content: center;
+}
+.cartel h1 { font-size: 4rem; text-transform: uppercase; }
+/* Los dos "rollitos" de los extremos */
+.cartel::before, .cartel::after {
+  content: ""; position: absolute; top: -10px; bottom: -10px; width: 24px;
+  background: repeating-linear-gradient(to bottom, var(--azul) 0 3px, #fff 3px 7px);
+  border: 3px solid var(--azul); border-radius: 6px;
+}
+.cartel::before { left: -12px; }
+.cartel::after  { right: -12px; }
+.subtitulo { position: absolute; left: 470px; top: 340px; width: 700px; font-family: var(--f-titulo); font-size: 2.6rem; }
+
+/* ============================================================
+   5. MARCO SUPERIOR (desde la pantalla 2): franja de olas arriba con las pestañas.
+   Es la portada "de cabeza": una franja celeste sólida + dos olas (reutilizan .ola de la sección 4.2)
+   puestas boca abajo con scaleY(-1). Las pestañas se dibujan por JS (ver sección C).
+   ============================================================ */
+.marco { position: absolute; left: 0; top: 0; width: 1280px; height: 125px; overflow: hidden; z-index: 3; }
+.marco .fondo-claro { position: absolute; left: 0; right: 0; top: 0; height: 80px; background: #b3e5f9; }
+.marco .ola { bottom: auto; transform: scaleY(-1); }   /* boca abajo */
+.marco .ola.atras  { top: 55px; }                      /* ola celeste, más abajo */
+.marco .ola.frente { top: 0; }                         /* ola cian, pegada al borde de arriba */
+
+.pestanas { position: absolute; left: 0; right: 0; top: 50px; display: flex; justify-content: center; gap: 22px; }
+.pestana {
+  font-family: var(--f-texto); font-weight: 600; font-size: 1.6rem;
+  padding: 8px 32px; border-radius: 16px; border: 4px solid var(--azul);
+  background: #fff; color: var(--azul);
+}
+.pestana:hover { background: #e3f6ff; }
+.pestana.on { background: var(--azul); color: #fff; }
+
+/* ============================================================
+   6. PANTALLAS CON MARCO: el contenido va centrado debajo del marco
+   ============================================================ */
+.pantalla {
+  width: 1280px; min-height: 620px; position: relative;
+  padding: 150px 70px 32px;                 /* 150 px de arriba = espacio del marco */
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 16px;
+  text-align: left;                         /* el texto va a la izquierda; ya no todo se centra */
+}
+/* Recuadro blanco que encierra el contenido de cada pantalla */
+.pantalla::before {
+  content: ""; position: absolute; left: 34px; right: 34px; top: 126px; bottom: 14px;
+  background: #fff; border: 2px solid #d8f0fb; border-radius: 32px;
+  box-shadow: 0 16px 40px rgba(0, 112, 192, .16), 0 2px 6px rgba(0, 112, 192, .08);
+}
+.pantalla > * { position: relative; z-index: 1; }
+.pantalla h2 { font-size: 4.5rem; color: var(--azul); }
+
+/* ---- Pantalla "Plan lector": texto real de lectura, alineado a la izquierda ---- */
+.lectura { font-family: var(--f-texto); font-weight: 400; font-size: 1.65rem; line-height: 1.5; max-width: 1140px; }
+.lectura p { margin: 0 0 12px; }
+.pregunta {   /* la pregunta destacada */
+  background: var(--azul); color: #fff; border-radius: 20px; padding: 16px 36px; margin-top: 4px;
+  font-family: var(--f-titulo); font-size: 2.6rem; line-height: 1.2; max-width: 1140px;
+}
+.fuente { font-size: 1.15rem; color: #333; }
+
+/* ---- Tarjetas de ejemplos (formato ficha: icono a la izquierda, texto a la derecha) ---- */
+.ficha { display: flex; width: 100%; min-height: 400px; background: #fff; border: 4px solid var(--azul); border-radius: 20px; overflow: hidden; }
+.ficha-arte { flex: 0 0 38%; display: flex; align-items: center; justify-content: center; background: linear-gradient(160deg, var(--cian), var(--azul)); }
+.ficha-arte svg { width: 210px; height: 210px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ficha-cuerpo { flex: 1; padding: 30px 38px; display: flex; flex-direction: column; justify-content: center; gap: 16px; }
+.chips { display: flex; gap: 10px; flex-wrap: wrap; }
+.chip { background: #e3f6ff; color: var(--azul); border-radius: 999px; padding: 4px 16px; font-weight: 600; font-size: 1.1rem; }
+.ficha h4 { font-family: var(--f-titulo); font-weight: 400; font-size: 2.7rem; margin: 0; color: var(--azul); }
+.ficha p { margin: 0; font-size: 2.2rem; font-weight: 500; line-height: 1.3; }
+.ficha .btn { align-self: flex-start; margin-top: 6px; font-size: 1.3rem; padding: 12px 28px; }
+
+/* Dato curioso dentro de cada ficha */
+.ficha-dato {
+  background: #e9f9ff; border-left: 6px solid var(--cian); border-radius: 12px;
+  padding: 9px 16px; font-size: 1.35rem; line-height: 1.35; color: #16324a;
+}
+.ficha-dato b {
+  display: block; font-family: var(--f-titulo); font-weight: 400;
+  font-size: 1.65rem; line-height: 1.1; color: var(--azul); margin-bottom: 2px;
+}
+
+/* Los dos botones de la ficha (barra y laboratorio) */
+.ficha-botones { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+.ficha-botones .btn { margin-top: 0; }
+.btn-suave { background: #fff; color: var(--azul); border: 3px solid var(--azul); }
+.btn-suave:hover { background: #e3f6ff; color: var(--azul); }
+
+/* ---- Ejemplo gráfico: la recta con el rango resaltado ---- */
+.grafico-titulo { font-family: var(--f-titulo); font-size: 3.2rem; color: var(--azul); }
+.grafico-sub { font-size: 1.6rem; margin-top: -8px; }
+.grafico { width: 100%; height: auto; margin-top: 10px; }
+.resaltado { transform-box: fill-box; transform-origin: left center; animation: crecer 1s ease-out; }   /* el rango "crece" al aparecer */
+@keyframes crecer { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.frase-grafico { font-size: 2rem; font-weight: 500; }
+.nota-lugar { font-size: 1.8rem; }
+
+/* ============================================================
+   7. PANTALLA "BARRA": pregunta, modos y barra de colores
+   Los colores y los límites se calculan en el JS (sección D).
+   ============================================================ */
+.pantalla.centrada { align-items: center; text-align: center; gap: 12px; }
+.pantalla h2.barra-titulo { font-size: 3.6rem; }
+
+/* ---- Banner que indica qué ejemplo está cargado ---- */
+.barra-ejemplo {
+  display: inline-flex; align-items: center; align-self: center; gap: 8px;
+  background: #fff; border: 3px solid var(--azul); border-radius: 999px;
+  padding: 6px 8px; font-size: 1.2rem; white-space: nowrap;
+  box-shadow: 0 10px 24px rgba(0, 112, 192, .2);
+}
+.barra-ejemplo .label {
+  background: var(--azul); color: #fff; font-weight: 600; font-size: 1.3rem;
+  border-radius: 999px; padding: 8px 22px;
+}
+.barra-ejemplo .num {
+  background: #e3f6ff; color: var(--azul); font-weight: 600; font-size: 1.05rem;
+  border-radius: 999px; padding: 5px 14px;
+}
+.barra-ejemplo .nom { color: var(--azul); font-weight: 600; font-size: 1.35rem; padding: 0 16px 0 6px; }
+
+/* ---- Botones de modo (arriba de la barra) ---- */
+.modos {
+  display: inline-flex; gap: 4px; padding: 4px;
+  background: #fff; border: 3px solid var(--azul); border-radius: 999px;
+  box-shadow: 0 6px 16px rgba(0, 112, 192, .14);
+}
+.modo-btn {
+  border: 0; background: transparent; color: var(--azul);
+  font-weight: 600; font-size: 1.25rem; padding: 8px 34px; border-radius: 999px;
+}
+.modo-btn:hover:not(.on) { background: #e3f6ff; }
+.modo-btn.on { background: var(--azul); color: #fff; }
+
+/* ---- Zona de controles: pista de la aguja o barra deslizante ---- */
+.controles { width: 100%; min-height: 46px; display: flex; align-items: center; justify-content: center; }
+.auto-tip { font-size: 1.3rem; color: #315a75; }
+.auto-tip kbd {
+  font-family: var(--f-texto); font-weight: 600; font-size: 1.05rem;
+  padding: 2px 10px; border: 2px solid #b7dcef; border-bottom-width: 4px;
+  border-radius: 8px; background: #fff;
+}
+.manual-tip { width: 760px; }
+.slider {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 14px;
+  border-radius: 999px; background: #cfeafb; border: 2px solid #9fd3ee; outline: none;
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 34px; height: 34px;
+  border-radius: 50%; background: var(--azul); border: 5px solid #fff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .25); cursor: grab;
+}
+.slider::-moz-range-thumb {
+  width: 26px; height: 26px; border-radius: 50%; background: var(--azul);
+  border: 5px solid #fff; box-shadow: 0 3px 10px rgba(0, 0, 0, .25); cursor: grab;
+}
+
+/* ---- Marco elegante de la barra ---- */
+.barra-marco {
+  width: 1060px; padding: 26px 58px 22px; background: #fff;
+  border: 4px solid var(--azul); border-radius: 30px;
+  box-shadow: 0 20px 44px rgba(0, 112, 192, .2), 0 4px 10px rgba(0, 112, 192, .1);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.barra { position: relative; height: 86px; margin-top: 42px; }   /* margen de arriba: espacio para la gota de la aguja */
+.carril {
+  display: flex; height: 86px; border-radius: 22px; overflow: hidden;
+  box-shadow: inset 0 4px 12px rgba(0, 0, 0, .18);
+}
+.zona { height: 100%; }
+.zona.roja     { background: linear-gradient(180deg, #ff8080, #e0313c); }
+.zona.verde    { background: linear-gradient(180deg, #62e397, #1fae56); }
+.zona.amarilla { background: linear-gradient(180deg, #ffe36e, #f0b400); }
+
+/* Líneas pequeñas que marcan los cambios de color (sin texto) */
+.marca {
+  position: absolute; top: -14px; bottom: -14px; width: 4px; margin-left: -2px;
+  background: #16324a; border-radius: 3px; z-index: 3;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, .85);
+}
+
+/* Aguja */
+.aguja {
+  position: absolute; top: -16px; bottom: -16px; width: 10px; margin-left: -5px; z-index: 4;
+  border-radius: 8px; background: linear-gradient(180deg, #fff, var(--azul) 16%, var(--azul) 84%, #fff);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, .9), 0 5px 12px rgba(0, 0, 0, .28);
+}
+.aguja::before {   /* aro blanco de la punta */
+  content: ""; position: absolute; left: 50%; top: -24px; width: 34px; height: 34px; margin-left: -17px;
+  border-radius: 50%; background: #fff; border: 5px solid var(--azul);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .2);
+}
+.aguja::after {    /* gotita */
+  content: "💧"; position: absolute; left: 50%; top: -16px; transform: translateX(-50%);
+  font-size: 17px; line-height: 1;
+}
+
+.barra-escala { display: flex; justify-content: space-between; margin-top: 16px; font-size: 1.1rem; font-weight: 600; color: #4a7089; }
+.barra-lectura { position: relative; display: flex; align-items: center; justify-content: center; gap: 22px; margin-top: 2px; }
+.valor { font-family: var(--f-titulo); font-size: 3.2rem; line-height: 1; color: var(--azul); }
+.zona-pill { font-size: 1.4rem; font-weight: 600; padding: 6px 22px; border-radius: 999px; border: 2px solid; }
+.z-roja     { background: #ffe1e1; color: #b01824; border-color: #e0313c; }
+.z-verde    { background: #d9f8e6; color: #12713c; border-color: #1fae56; }
+.z-amarilla { background: #fff3c4; color: #805500; border-color: #e0a800; }
+
+/* ============================================================
+   8. PANTALLA "LABORATORIO": el intervalo de agua en la recta
+   Todo lleva el prefijo lab- para no chocar con la barra.
+   ============================================================ */
+.pantalla.lab-pantalla { gap: 12px; }
+
+/* ---- Cabecera: título + acciones ---- */
+.lab-cabecera {
+  width: 100%; display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 18px; flex-wrap: wrap;
+}
+.pantalla h2.lab-titulo { font-size: 3.2rem; line-height: 1; }
+.lab-sub { margin: 6px 0 0; font-size: 1.15rem; color: #315a75; }
+.lab-acciones { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.btn.chico { font-size: 1rem; padding: 8px 16px; border-radius: 10px; }
+
+/* ---- Fila de ejemplos + fuente ---- */
+.lab-fila-ejemplos {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+}
+.lab-ejemplos { display: flex; gap: 8px; flex-wrap: wrap; }
+.lab-ejemplo-btn {
+  background: #fff; color: var(--azul); border: 3px solid #b7e6f9; border-radius: 999px;
+  padding: 7px 16px; font-size: 1rem; font-weight: 600;
+}
+.lab-ejemplo-btn:hover { background: #e3f6ff; }
+.lab-ejemplo-btn.on { background: var(--azul); color: #fff; border-color: var(--azul); }
+.lab-fuente {
+  background: #e3f6ff; color: var(--azul); border: 2px solid #b7e6f9; border-radius: 999px;
+  padding: 5px 14px; font-size: 1rem; font-weight: 600; white-space: nowrap;
+}
+
+/* ---- Tres tarjetas: desigualdad, notación y amplitud ---- */
+.lab-cards { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.lab-card {
+  background: #fff; border: 3px solid #bfe9fa; border-radius: 18px; padding: 9px 16px 11px;
+  text-align: center; box-shadow: 0 6px 16px rgba(0, 112, 192, .08);
+}
+.lab-card-rotulo {
+  display: block; font-size: .78rem; letter-spacing: .12em; text-transform: uppercase;
+  color: #5d8199; font-weight: 600;
+}
+.lab-card-valor {
+  font-family: var(--f-titulo); font-size: 2.15rem; line-height: 1.15; color: var(--azul);
+  min-height: 2.5rem; display: flex; align-items: center; justify-content: center; white-space: nowrap;
+}
+.lab-card-nota { font-size: .9rem; color: #5d8199; }
+
+/* ---- Panel del gráfico ---- */
+.lab-panel {
+  width: 100%; background: #fff; border: 3px solid #bfe9fa; border-radius: 20px;
+  padding: 9px 18px 11px; box-shadow: 0 10px 24px rgba(0, 112, 192, .1);
+}
+.lab-graph-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.lab-graph-top h3 {
+  font-family: var(--f-texto); font-size: .85rem; letter-spacing: .12em;
+  text-transform: uppercase; color: #5d8199; font-weight: 600;
+}
+
+/* La recta: barra del intervalo arriba, eje y números abajo */
+.lab-recta { position: relative; height: 190px; user-select: none; touch-action: none; margin-top: 2px; }
+.lab-eje { position: absolute; left: 0; right: 0; top: 136px; height: 4px; background: var(--azul); border-radius: 2px; }
+.lab-eje::before, .lab-eje::after { content: ""; position: absolute; top: -6px; border: 8px solid transparent; }
+.lab-eje::before { left: -6px; border-right-color: var(--azul); border-left: 0; }
+.lab-eje::after  { right: -6px; border-left-color: var(--azul); border-right: 0; }
+
+.lab-tick { position: absolute; top: 130px; transform: translateX(-50%); text-align: center; pointer-events: none; }
+.lab-tick i { display: block; width: 2px; height: 16px; margin: 0 auto; background: var(--azul); }
+.lab-tick span { display: block; margin-top: 4px; font-family: var(--f-titulo); font-size: 1.05rem; color: var(--azul); }
+.lab-tick.extremo i { background: #1fae56; height: 20px; }
+.lab-tick.extremo span { color: #1fae56; font-size: 1.25rem; }
+
+.lab-barra {
+  position: absolute; top: 62px; height: 40px; border: 3px solid #1fae56; border-radius: 10px;
+  background: repeating-linear-gradient(45deg, rgba(31, 174, 86, .55) 0 7px, rgba(31, 174, 86, .15) 7px 14px);
+  cursor: grab;
+}
+.lab-barra:active { cursor: grabbing; }
+.lab-tallo { position: absolute; top: 102px; height: 34px; border-left: 2px dashed #1fae56; pointer-events: none; }
+.lab-punto {
+  position: absolute; top: 71px; width: 22px; height: 22px; margin-left: -11px;
+  border-radius: 50%; border: 4px solid #1fae56; background: #1fae56;
+  cursor: pointer; z-index: 3; transition: transform .1s;
+}
+.lab-punto:hover { transform: scale(1.2); }
+.lab-punto.abierto { background: #fff; }
+
+.lab-oculta {
+  height: 190px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border: 3px dashed var(--azul); border-radius: 16px; color: var(--azul);
+  font-family: var(--f-titulo); font-size: 1.6rem; line-height: 1.3;
+  text-align: center; background: #f5fcff; padding: 12px;
+}
+
+/* ---- Controles de los extremos ---- */
+.lab-controles {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  border-top: 2px solid #d8f0fb; padding-top: 8px; margin-top: 3px;
+}
+.lab-controles label { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; margin-right: 16px; color: #16324a; }
+.lab-select {
+  font-family: inherit; font-size: .95rem; padding: 5px 8px; border: 2px solid #b7e6f9;
+  border-radius: 8px; background: #fff; color: var(--azul);
+}
+.lab-tip { color: #5d8199; font-style: italic; font-size: .95rem; }
+
+/* ---- Ventana para introducir un intervalo ---- */
+.modal-lab {
+  position: fixed; inset: 0; z-index: 100; display: none; align-items: center; justify-content: center;
+  padding: 20px; background: rgba(0, 32, 64, .55);
+}
+.modal-lab.abierto { display: flex; }
+.modal-lab-caja {
+  width: 100%; max-width: 520px; background: #fff; border: 4px solid var(--azul);
+  border-radius: 24px; padding: 24px 28px 22px; text-align: left;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .28);
+}
+.modal-lab-caja h3 { font-size: 2rem; color: var(--azul); margin-bottom: 2px; }
+.modal-lab-sub { margin: 0 0 12px; font-size: 1rem; color: #5d8199; }
+.modal-lab-caja label { display: block; font-size: .9rem; font-weight: 600; margin: 8px 0 4px; }
+.modal-lab-caja input, .modal-lab-caja select {
+  width: 100%; font-family: inherit; font-size: 1rem; padding: 8px 10px;
+  border: 2px solid #b7e6f9; border-radius: 10px; background: #fff; color: #16324a;
+}
+.modal-lab-fila { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.modal-lab-error { color: #b01824; font-size: .9rem; margin-top: 8px; }
+.modal-lab-acciones { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+.modal-lab-acciones .btn { font-size: 1.05rem; padding: 9px 20px; }
+
+/* ============================================================
+   9. PANTALLAS "ACTIVIDADES": una plantilla, una pantalla por actividad
+   Alto fijo (720 px = 16:9): todas las zonas están reservadas desde el inicio,
+   así nada cambia de lugar cuando algo aparece (solo cambia la visibilidad).
+   ============================================================ */
+.pantalla.act-pantalla { height: 720px; min-height: 0; padding: 138px 52px 30px; justify-content: flex-start; align-items: stretch; gap: 10px; }
+
+/* Lo que aparece poco a poco: ocupa su lugar pero no se ve hasta tener la clase "ver" */
+.act-vel { opacity: 0; visibility: hidden; transition: opacity .4s; }
+.act-vel.ver { opacity: 1; visibility: visible; }
+
+/* Título */
+.act-titulo { height: 50px; display: flex; align-items: center; gap: 14px; }
+.pantalla .act-titulo h2 { font-size: 2.7rem; line-height: 1; }
+.act-paso { margin-left: auto; font-size: 1rem; font-weight: 600; color: #5d8199; }
+
+/* Consigna: contexto en texto normal + pregunta en recuadro azul (reutiliza .pregunta) */
+.act-consigna { height: 152px; overflow: hidden; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+.act-contexto { font-size: 1.45rem; line-height: 1.25; }
+.act-consigna .pregunta { font-size: 1.8rem; padding: 8px 26px; margin: 0; max-width: none; }
+
+/* Fila central: imagen | modelización | explicación */
+.act-fila { height: 240px; display: grid; grid-template-columns: 220px 1fr 290px; gap: 14px; }
+.act-foto { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.act-img { height: 192px; border-radius: 18px; overflow: hidden; border: 3px solid #bfe9fa; background: #e3f6ff; }
+.act-img img, .act-img svg { width: 100%; height: 100%; display: block; object-fit: cover; }
+.act-credito { font-size: .8rem; line-height: 1.15; height: 2.3em; overflow: hidden; color: #5d8199; text-align: center; }
+
+.act-modelo {
+  border: 3px solid #bfe9fa; border-radius: 20px; padding: 6px 14px; background: #fff; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.act-modelo h3 { font-family: var(--f-texto); font-size: .85rem; letter-spacing: .12em; text-transform: uppercase; color: #5d8199; font-weight: 600; }
+.act-modelo .lab-oculta { font-size: 2rem; }
+.act-modelo .lab-tick span { font-size: 1.35rem; }              /* números más grandes para la TV */
+.act-modelo .lab-tick.extremo span { font-size: 1.6rem; }
+.lab-barra.anim { transform-origin: left center; animation: crecer 1s ease-out; }   /* el tramo "crece" (reutiliza @keyframes crecer) */
+
+.act-expl-zona { display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }   /* explicación alineada abajo */
+.act-expl { font-size: 1.2rem; line-height: 1.3; }
+
+/* RPTA */
+.act-rpta { height: 66px; display: flex; align-items: center; gap: 16px; padding: 0 16px; background: #fff; border: 4px solid var(--azul); border-radius: 20px; }
+.act-rpta .rotulo { background: var(--azul); color: #fff; font-family: var(--f-titulo); font-size: 1.9rem; border-radius: 12px; padding: 2px 20px; }
+.act-rpta .texto { font-family: var(--f-titulo); font-size: 2.3rem; color: var(--azul); white-space: nowrap; }
+</style>
+</head>
+
+<body>
+
+<main id="stage">
+
+<!-- ================= PANTALLA 1: PORTADA ================= -->
+<section class="slide" id="portada-slide">
+  <div class="portada">
+
+    <!-- Burbujas (x = posición, s = tamaño, t = duración de la subida, d = retraso) -->
+    <div class="burbuja" style="--x:4%;  --s:46px; --t:16s; --d:-2s"></div>
+    <div class="burbuja" style="--x:14%; --s:24px; --t:12s; --d:-9s"></div>
+    <div class="burbuja" style="--x:30%; --s:34px; --t:18s; --d:-6s"></div>
+    <div class="burbuja" style="--x:42%; --s:20px; --t:14s; --d:-11s"></div>
+    <div class="burbuja" style="--x:52%; --s:52px; --t:20s; --d:-4s"></div>
+    <div class="burbuja" style="--x:62%; --s:28px; --t:13s; --d:-8s"></div>
+    <div class="burbuja" style="--x:70%; --s:40px; --t:17s; --d:-1s"></div>
+    <div class="burbuja" style="--x:78%; --s:22px; --t:11s; --d:-5s"></div>
+    <div class="burbuja" style="--x:85%; --s:62px; --t:22s; --d:-13s"></div>
+    <div class="burbuja" style="--x:91%; --s:30px; --t:15s; --d:-7s"></div>
+    <div class="burbuja" style="--x:96%; --s:44px; --t:19s; --d:-10s"></div>
+    <div class="burbuja" style="--x:36%; --s:26px; --t:21s; --d:-15s"></div>
+
+    <!-- Olas del fondo (se mueven solas) -->
+    <div class="ola atras"></div>
+    <div class="ola frente"></div>
+
+    <!-- Botella: toca para llenarla -->
+    <div id="botella" onclick="llenarBotella()" title="Toca la botella">
+      <svg viewBox="0 0 200 400">
+        <defs>
+          <!-- forma de la botella: sirve de contorno y también para recortar el agua -->
+          <clipPath id="forma-botella">
+            <path d="M75 40 H125 V70 C125 90 160 100 160 130 V370 Q160 390 140 390 H60 Q40 390 40 370 V130 C40 100 75 90 75 70 Z"/>
+          </clipPath>
+        </defs>
+
+        <!-- cuerpo de la botella (vacío, casi transparente) -->
+        <path d="M75 40 H125 V70 C125 90 160 100 160 130 V370 Q160 390 140 390 H60 Q40 390 40 370 V130 C40 100 75 90 75 70 Z"
+              fill="#ffffff" fill-opacity=".55"/>
+
+        <!-- agua (recortada con la forma de la botella) -->
+        <g clip-path="url(#forma-botella)">
+          <g id="agua">
+            <g class="olitas">
+              <path d="M-90 10 Q-65 -4 -40 10 T10 10 T60 10 T110 10 T160 10 T210 10 T260 10 V500 H-90 Z" fill="var(--cian)" fill-opacity=".8"/>
+            </g>
+          </g>
+        </g>
+
+        <!-- etiqueta azul con la palabra "water" -->
+        <rect x="40" y="190" width="120" height="70" fill="var(--azul)"/>
+        <text x="100" y="236" text-anchor="middle" font-family="Chewy, cursive" font-size="34" fill="#fff">water</text>
+
+        <!-- contorno y tapa -->
+        <path d="M75 40 H125 V70 C125 90 160 100 160 130 V370 Q160 390 140 390 H60 Q40 390 40 370 V130 C40 100 75 90 75 70 Z"
+              fill="none" stroke="#7f95bd" stroke-width="5" stroke-linejoin="round"/>
+        <rect x="72" y="8" width="56" height="32" rx="5" fill="#fff" stroke="#7f95bd" stroke-width="5"/>
+        <!-- rayitas de la tapa -->
+        <path d="M84 14 V36 M94 14 V36 M106 14 V36 M116 14 V36" stroke="#b9c6e0" stroke-width="3"/>
+      </svg>
+    </div>
+    <div class="pista">👆 Toca la botella</div>
+
+    <!-- Vaso con agua y salpicadura -->
+    <div class="vaso">
+      <svg viewBox="0 0 120 200">
+        <defs>
+          <clipPath id="forma-vaso">
+            <path d="M10 50 H110 L98 190 Q97 196 90 196 H30 Q23 196 22 190 Z"/>
+          </clipPath>
+        </defs>
+        <!-- vaso -->
+        <path d="M10 50 H110 L98 190 Q97 196 90 196 H30 Q23 196 22 190 Z" fill="#ffffff" fill-opacity=".6"/>
+        <!-- agua del vaso con olitas que se mueven -->
+        <g clip-path="url(#forma-vaso)">
+          <g transform="translate(0 78)">
+            <g class="olitas">
+              <path d="M-90 10 Q-65 -4 -40 10 T10 10 T60 10 T110 10 T160 10 T210 10 T260 10 V300 H-90 Z" fill="var(--cian)" fill-opacity=".45"/>
+            </g>
+          </g>
+        </g>
+        <!-- contorno -->
+        <path d="M10 50 H110 L98 190 Q97 196 90 196 H30 Q23 196 22 190 Z" fill="none" stroke="#9aa9c4" stroke-width="4" stroke-linejoin="round"/>
+        <!-- salpicadura -->
+        <g class="salpicadura">
+          <path d="M55 50 Q44 26 58 6 Q68 28 76 18 Q92 34 78 50 Z" fill="var(--cian)" fill-opacity=".55"/>
+          <circle cx="92" cy="14" r="4" fill="var(--cian)" fill-opacity=".55"/>
+          <circle cx="40" cy="22" r="3" fill="var(--cian)" fill-opacity=".55"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Flecha punteada -->
+    <svg class="flecha" viewBox="0 0 110 70">
+      <path d="M4 50 C20 70 30 30 50 40 S80 20 100 28" fill="none" stroke="var(--azul)" stroke-width="3" stroke-dasharray="6 6"/>
+      <path d="M96 20 L108 28 L94 36 Z" fill="var(--azul)"/>
+    </svg>
+
+    <!-- Título -->
+    <div class="cartel"><h1>El poder del agua</h1></div>
+    <div class="subtitulo">Pequeño hábito, gran impacto</div>
+  </div>
+</section>
+
+<!-- ================= PANTALLA 2: PLAN LECTOR =================
+     Las pantallas con class="con-marco" reciben arriba la franja de olas y las pestañas (lo hace el JS). -->
+<section class="slide con-marco" data-tab="lector" id="plan-lector-slide">
+  <div class="pantalla">
+
+    <!-- Texto de lectura (lo lee el estudiante o el docente) -->
+    <div class="lectura">
+      <p>El 70 % de la composición de nuestro cuerpo es agua. Es un elemento indispensable para mantenerlo sano porque, además de limpiar el organismo y eliminar las toxinas, es un eficaz vehículo para transportar las vitaminas y sales minerales que necesitan nuestras células.</p>
+
+      <p>El agua permite que nuestro organismo realice la mayor parte de sus funciones vitales. Tres cuartas partes del cerebro y el corazón se componen de agua, más del 80 % de los pulmones y más del 92 % de la sangre. El agua transporta nutrientes y oxígeno a todas las células de nuestro cuerpo y actúa como amortiguador de nuestros órganos, ya que están rodeados por agua.</p>
+
+      <p>Aunque no hay una respuesta unívoca sobre cuántos litros de agua hay que beber al día, la Organización Mundial de la Salud (OMS) recomienda consumir entre un litro y medio y dos litros diariamente.</p>
+    </div>
+
+    <!-- Pregunta destacada -->
+    <div class="pregunta">¿Crees que todas las personas deben tomar una cantidad exacta de agua?</div>
+
+    <div class="fuente">Fuente: Fundación Aquae · Organización Mundial de la Salud (OMS)</div>
+  </div>
+</section>
+
+<!-- ================= PANTALLA 3: BARRA =================
+     Los límites de color salen del ejemplo elegido (o del adulto si se entra directo). -->
+<section class="slide con-marco" data-tab="barra" id="barra-slide">
+  <div class="pantalla centrada">
+    <h2 class="barra-titulo">¿Estoy tomando suficiente agua?</h2>
+
+    <!-- Ejemplo con el que se están calculando los límites -->
+    <div class="barra-ejemplo" id="ejemplo-tag">
+      <span class="label">Cantidad recomendada de agua</span>
+      <span class="num" id="ejemplo-num">Ejemplo 1 de 3</span>
+      <span class="nom" id="ejemplo-nombre">Persona adulta promedio</span>
+    </div>
+
+    <!-- Botones de modo -->
+    <div class="modos" role="group" aria-label="Modo de la aguja">
+      <button class="modo-btn on" id="modo-auto" onclick="setModo('auto'); this.blur()">Automático</button>
+      <button class="modo-btn" id="modo-manual" onclick="setModo('manual'); this.blur()">Manual</button>
+    </div>
+
+    <!-- Arriba de la barra: pista de la aguja (automático) o deslizador (manual) -->
+    <div class="controles">
+      <div class="auto-tip" id="auto-tip">La aguja va y viene sola · <kbd>Espacio</kbd> para detenerla</div>
+      <div class="manual-tip" id="manual-tip" hidden>
+        <input type="range" class="slider" id="slider" min="0" max="3.5" step="0.1" value="0"
+               aria-label="Litros de agua al día" oninput="moverManual(this.value)">
+      </div>
+    </div>
+
+    <!-- Barra con las tres zonas y la aguja -->
+    <div class="barra-marco">
+      <div class="barra">
+        <div class="carril">
+          <div class="zona roja" id="zona-roja"></div>
+          <div class="zona verde" id="zona-verde"></div>
+          <div class="zona amarilla" id="zona-amarilla"></div>
+        </div>
+        <div class="marca" id="marca-min"></div>
+        <div class="marca" id="marca-max"></div>
+        <div class="aguja" id="aguja"></div>
+      </div>
+
+      <div class="barra-escala"><span>0 L</span><span id="escala-tope">3,5 L</span></div>
+
+      <div class="barra-lectura">
+        <span class="valor" id="valor">0,0 L</span>
+        <span class="zona-pill z-roja" id="zona-pill">Poca agua</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PANTALLA 4: LABORATORIO =================
+     Los ejemplos llenan las tres tarjetas y la recta. Los símbolos
+     de intervalo se muestran aquí por primera vez. -->
+<section class="slide con-marco" data-tab="lab" id="laboratorio-slide">
+  <div class="pantalla lab-pantalla">
+
+    <div class="lab-cabecera">
+      <div>
+        <h2 class="lab-titulo">Laboratorio de intervalos</h2>
+        <p class="lab-sub">La cantidad recomendada de agua también se escribe como un intervalo.</p>
+      </div>
+      <div class="lab-acciones">
+        <button class="btn chico" onclick="generarIntervaloAleatorio(); this.blur()">✨ Generar aleatorio</button>
+        <button class="btn btn-suave chico" onclick="abrirModalLab(); this.blur()">✏️ Introducir</button>
+        <button class="btn btn-suave chico" onclick="resetLab(); this.blur()">🔄 Restablecer</button>
+      </div>
+    </div>
+
+    <div class="lab-fila-ejemplos">
+      <div class="lab-ejemplos" id="lab-ejemplos"></div>
+      <span class="lab-fuente" id="lab-fuente">Fuente: OMS</span>
+    </div>
+
+    <div class="lab-cards">
+      <div class="lab-card">
+        <span class="lab-card-rotulo">Desigualdad</span>
+        <div class="lab-card-valor" id="lab-card-inequality">1,5 ≤ x ≤ 2</div>
+        <small class="lab-card-nota">x = litros al día</small>
+      </div>
+      <div class="lab-card">
+        <span class="lab-card-rotulo">Notación de intervalo</span>
+        <div class="lab-card-valor" id="lab-card-notation">[1,5; 2]</div>
+        <small class="lab-card-nota">así se escribe el intervalo</small>
+      </div>
+      <div class="lab-card">
+        <span class="lab-card-rotulo">Amplitud</span>
+        <div class="lab-card-valor" id="lab-card-amplitude">0,5 L</div>
+        <small class="lab-card-nota">entre el mínimo y el máximo</small>
+      </div>
+    </div>
+
+    <div class="lab-panel">
+      <div class="lab-graph-top">
+        <h3>Litros de agua al día</h3>
+        <button class="btn btn-suave chico" id="lab-btn-hide" onclick="alternarRectaLab(); this.blur()">🙈 Ocultar recta</button>
+      </div>
+
+      <div id="recta-lab" class="lab-recta"></div>
+      <div id="recta-oculta-lab" class="lab-oculta" hidden>
+        ✍️ Escribe el intervalo en tu cuaderno…<br>luego pulsa «Mostrar recta» para comprobar
+      </div>
+
+      <div class="lab-controles">
+        <div>
+          <label>Extremo izquierdo
+            <select class="lab-select" id="lab-select-left" onchange="cambiarExtremo('left', this.value)">
+              <option value="closed">Cerrado [</option>
+              <option value="open">Abierto (</option>
+            </select>
+          </label>
+          <label>Extremo derecho
+            <select class="lab-select" id="lab-select-right" onchange="cambiarExtremo('right', this.value)">
+              <option value="closed">Cerrado ]</option>
+              <option value="open">Abierto )</option>
+            </select>
+          </label>
+        </div>
+        <div class="lab-tip">💡 Arrastra los círculos o el centro de la barra</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ▼▼ AQUÍ IRÁN LAS SIGUIENTES PANTALLAS: cada una es un <section class="slide"> ▼▼ -->
+
+</main>
+
+<!-- ================= BARRA DE NAVEGACIÓN ================= -->
+<footer>
+  <button class="btn" id="prev" onclick="go(-1); this.blur()">◀ Anterior</button>
+  <div class="nav-mid">
+    <div id="dots"></div>
+    <span>El poder del agua · Plan lector matemático</span>
+  </div>
+  <button class="btn" id="next" onclick="go(1); this.blur()">Siguiente ▶</button>
+</footer>
+
+<!-- ================= VENTANA: INTRODUCIR UN INTERVALO ================= -->
+<div id="modal-lab" class="modal-lab" aria-hidden="true" onclick="if (event.target === this) cerrarModalLab()">
+  <div class="modal-lab-caja" role="dialog" aria-modal="true" aria-labelledby="modal-lab-title">
+    <h3 id="modal-lab-title">Introducir intervalo</h3>
+    <p class="modal-lab-sub">Escribe la cantidad de agua al día, en litros.</p>
+
+    <div class="modal-lab-fila">
+      <div>
+        <label for="lab-modal-a">Extremo a</label>
+        <input type="number" id="lab-modal-a" value="1.5" min="0" max="10" step="0.1">
+      </div>
+      <div>
+        <label for="lab-modal-b">Extremo b</label>
+        <input type="number" id="lab-modal-b" value="2" min="0" max="10" step="0.1">
+      </div>
+    </div>
+
+    <div class="modal-lab-fila">
+      <div>
+        <label for="lab-modal-left">Izquierda</label>
+        <select id="lab-modal-left">
+          <option value="closed">Cerrado [</option>
+          <option value="open">Abierto (</option>
+        </select>
+      </div>
+      <div>
+        <label for="lab-modal-right">Derecha</label>
+        <select id="lab-modal-right">
+          <option value="closed">Cerrado ]</option>
+          <option value="open">Abierto )</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="lab-modal-error" class="modal-lab-error" hidden></div>
+
+    <div class="modal-lab-acciones">
+      <button class="btn btn-suave" onclick="cerrarModalLab()">Cancelar</button>
+      <button class="btn" onclick="aplicarIntervaloManual()">Aplicar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   A. PANTALLAS (navegación y ajuste a la TV)
+   Reutilizado del plan lector de intervalos.
+   ============================================================ */
+let slides = [], cur = 0;
+
+/* Pestañas del marco: texto y nombre de la sección a la que llevan.
+   Cada pantalla dice a qué sección pertenece con data-tab="lector" | "barra" | "lab". */
+const PESTANAS = [
+  { txt: 'Plan lector', tab: 'lector' },
+  { txt: 'Barra',       tab: 'barra'  },
+  { txt: 'Laboratorio', tab: 'lab'    },
+  { txt: 'Actividades', tab: 'act'    }   // plantilla de actividades (sección F)
+];
+
+/* Pone el marco (olas + pestañas) arriba de cada pantalla con class="con-marco" */
+function armarMarcos() {
+  const botones = PESTANAS.map(p =>
+    `<button class="pestana" data-tab="${p.tab}" onclick="irPestana('${p.tab}'); this.blur()">${p.txt}</button>`).join('');
+  document.querySelectorAll('.slide.con-marco').forEach(s => s.insertAdjacentHTML('afterbegin',
+    `<div class="marco">
+       <div class="fondo-claro"></div>
+       <div class="ola atras"></div>
+       <div class="ola frente"></div>
+       <div class="pestanas">${botones}</div>
+     </div>`));
+}
+
+/* Una pestaña lleva a la primera pantalla de su sección */
+function irPestana(tab) { goTo(slides.findIndex(s => s.dataset.tab === tab)); }
+
+function initSlides() {
+  armarEjemplos();      // crea las pantallas de ejemplos (sección C)
+  armarLabEjemplos();   // botones de ejemplo de la pestaña Laboratorio
+  armarActividades();   // una pantalla por cada actividad (sección F)
+  armarMarcos();
+  slides = [...document.querySelectorAll('#stage .slide')];
+  document.getElementById('dots').innerHTML =
+    slides.map((_, i) => `<button class="dot" onclick="goTo(${i}); this.blur()" aria-label="Pantalla ${i + 1}"></button>`).join('');
+  window.addEventListener('resize', fit);
+  document.addEventListener('keydown', onKey);
+  if (document.fonts) document.fonts.ready.then(fit);
+  cargarEjemploLab(EJEMPLOS[0]);   // deja el laboratorio listo con el ejemplo adulto
+  goTo(0);
+}
+
+/* Muestra la pantalla número i */
+function goTo(i, atras) {            // atras = true cuando se llega con "anterior"
+  const antes = cur;
+  cur = Math.max(0, Math.min(slides.length - 1, i));
+  slides.forEach((s, k) => s.classList.toggle('on', k === cur));
+  document.querySelectorAll('#dots .dot').forEach((d, k) => d.classList.toggle('on', k === cur));
+  document.querySelectorAll('.pestana').forEach(p => p.classList.toggle('on', p.dataset.tab === slides[cur].dataset.tab));  // pestaña activa
+  document.getElementById('prev').disabled = cur === 0;
+  document.getElementById('next').disabled = cur === slides.length - 1;
+  if (slides[cur].dataset.tab === 'barra') entrarBarra();   // prepara la barra con el ejemplo elegido
+  else pausarAguja();                                       // fuera de la barra, la aguja no gasta CPU
+  if (slides[cur].dataset.tab === 'lab') entrarLab();       // carga el ejemplo en el laboratorio
+  if (slides[cur].dataset.tab === 'act' && cur !== antes) entrarAct(slides[cur], atras);   // actividad: empieza en el paso 1 (o al final si se vuelve atrás)
+  fit();
+}
+const go = d => goTo(cur + d, d < 0);   // go(1) = siguiente, go(-1) = anterior
+
+/* Ajusta la pantalla actual al televisor: nunca queda cortada ni hay scroll */
+const MAX_ZOOM = 1.6;                               // límite de ampliación en pantallas muy grandes
+function fit() {
+  const st = document.getElementById('stage'), s = slides[cur];
+  if (!s) return;
+  const W = 1280;                                   // ancho de diseño de cada pantalla
+  s.style.width = W + 'px';
+  const k = Math.min(MAX_ZOOM, st.clientWidth * 0.96 / W, st.clientHeight * 0.95 / s.offsetHeight);
+  s.style.transform = `translate(-50%, -50%) scale(${k})`;
+}
+
+/* Teclado / clicker: flechas, AvPág/RePág, Inicio/Fin. Tecla F = pantalla completa */
+function onKey(e) {
+  const modalLab = document.getElementById('modal-lab');
+  if (modalLab && modalLab.classList.contains('abierto')) {
+    if (e.key === 'Escape') cerrarModalLab();
+    return;
+  }
+  if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+  const k = e.key;
+
+  // En la pantalla Barra, la barra espaciadora detiene/reanuda la aguja (modo automático)
+  if (k === ' ' && slides[cur] && slides[cur].dataset.tab === 'barra' && modoBarra === 'auto' && e.target.tagName !== 'BUTTON') {
+    detenerOReanudar();
+    e.preventDefault();
+    return;
+  }
+
+  // En una actividad, avanzar/retroceder revela o esconde pasos; solo al terminar se cambia de pantalla
+  const avanza = k === 'ArrowRight' || k === 'ArrowDown' || k === 'PageDown' || (k === ' ' && e.target.tagName !== 'BUTTON');
+  const retrocede = k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp';
+  if (avanza && avanzarAct()) { e.preventDefault(); return; }
+  if (retrocede && retrocederAct()) { e.preventDefault(); return; }
+
+  if (avanza) go(1);
+  else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp') go(-1);
+  else if (k === 'Home') goTo(0);
+  else if (k === 'End') goTo(slides.length - 1);
+  else if (k === 'f' || k === 'F') { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); }
+  else return;
+  e.preventDefault();
+}
+
+/* ============================================================
+   B. PORTADA: llenar la botella y pasar a la siguiente pantalla
+   El movimiento lo hace el CSS; aquí solo se ponen las clases y se espera.
+   ============================================================ */
+const TIEMPO_PORTADA = 2600;   // milisegundos: lo que tarda en llenarse + una pequeña pausa
+let llenando = false;          // evita que se toque dos veces mientras se llena
+
+function llenarBotella() {
+  if (llenando) return;
+  llenando = true;
+  const b = document.getElementById('botella');
+  b.classList.add('llena', 'mueve');               // "llena" sube el agua; "mueve" tambalea la botella
+
+  setTimeout(() => {
+    if (cur === 0) goTo(1);                        // pasa a la siguiente pantalla
+    reiniciarBotella();                            // la deja vacía para cuando se regrese a la portada
+  }, TIEMPO_PORTADA);
+}
+
+function reiniciarBotella() {
+  document.getElementById('botella').classList.remove('llena', 'mueve');
+  llenando = false;
+}
+
+/* ============================================================
+   C. EJEMPLOS: tarjeta + gráfico por cada persona
+   Todo sale de esta lista. Para cambiar o agregar un ejemplo, edita aquí.
+   minL y maxL = litros de agua al día. En {min} y {max} del texto se escriben esos números.
+   ============================================================ */
+const EJEMPLOS = [
+  { nombre: 'Persona adulta promedio', icono: 'adulto', minL: 1.5, maxL: 2,
+    fuente: 'OMS',
+    texto: 'Una persona adulta promedio debe tomar entre {min} y {max} litros de agua al día.',
+    dato: 'El 70 % de nuestro cuerpo es agua, y más del 92 % de la sangre también es agua.' },
+
+  { nombre: 'Niños', icono: 'ninos', minL: 1.2, maxL: 1.6,                 // VERIFICAR: valores de ejemplo
+    fuente: 'Valor de ejemplo',                                             // VERIFICAR: poner la fuente real
+    texto: 'Los niños deben tomar entre {min} y {max} litros de agua al día.',
+    dato: 'El agua transporta los nutrientes y el oxígeno que el cuerpo necesita para crecer y mantenerse sano.' },
+
+  { nombre: 'Preadolescentes', icono: 'preadolescente', minL: 1.6, maxL: 2.1,   // VERIFICAR: valores de ejemplo
+    fuente: 'Valor de ejemplo',                                                   // VERIFICAR: poner la fuente real
+    texto: 'Un preadolescente debe tomar entre {min} y {max} litros de agua al día.',
+    dato: 'Tres cuartas partes del cerebro y del corazón son agua; por eso el agua ayuda a que funcionen bien.' }
+];
+
+/* Iconos simples (dibujados con líneas blancas, viewBox 48 x 48) */
+const ICONOS = {
+  adulto: '<svg viewBox="0 0 48 48"><circle cx="24" cy="11" r="6"/><path d="M12 43V32c0-6 5-10 12-10s12 4 12 10v11"/></svg>',
+  ninos:  '<svg viewBox="0 0 48 48"><circle cx="14" cy="19" r="5"/><path d="M6 41v-6c0-5 3-8 8-8s8 3 8 8v6"/><circle cx="34" cy="19" r="5"/><path d="M26 41v-6c0-5 3-8 8-8s8 3 8 8v6"/></svg>',
+  preadolescente: '<svg viewBox="0 0 48 48"><circle cx="22" cy="13" r="5.5"/><path d="M12 43V34c0-6 4-10 10-10s10 4 10 10v9"/><path d="M33 28h6v12h-6"/></svg>'
+};
+
+/* Escribe un número con coma: 1.5 → "1,5" */
+const fmt = v => String(v).replace('.', ',');
+
+/* La recta: va de 0 a 3 litros; solo se escriben los DOS valores del rango */
+function rectaRango(e) {
+  const X0 = 70, ANCHO = 1000, TOPE = 3, Y = 150;
+  const x = v => X0 + (v / TOPE) * ANCHO;
+  return `<svg class="grafico" viewBox="0 0 1140 270">
+    <!-- recta con flecha a la derecha -->
+    <line x1="30" y1="${Y}" x2="1100" y2="${Y}" stroke="#333" stroke-width="5" stroke-linecap="round"/>
+    <path d="M1096 ${Y - 14} L1124 ${Y} L1096 ${Y + 14} Z" fill="#333"/>
+    <!-- rango resaltado -->
+    <rect class="resaltado" x="${x(e.minL)}" y="${Y - 17}" width="${x(e.maxL) - x(e.minL)}" height="34" rx="6" fill="var(--cian)"/>
+    <!-- marcas en los dos valores -->
+    <line x1="${x(e.minL)}" y1="${Y - 45}" x2="${x(e.minL)}" y2="${Y + 45}" stroke="var(--azul)" stroke-width="7" stroke-linecap="round"/>
+    <line x1="${x(e.maxL)}" y1="${Y - 45}" x2="${x(e.maxL)}" y2="${Y + 45}" stroke="var(--azul)" stroke-width="7" stroke-linecap="round"/>
+    <text x="${(x(e.minL) + x(e.maxL)) / 2}" y="${Y - 62}" text-anchor="middle" font-family="Fredoka, sans-serif" font-size="32" font-weight="500" fill="#000">agua recomendada al día</text>
+    <text x="${x(e.minL)}" y="${Y + 100}" text-anchor="middle" font-family="Chewy, cursive" font-size="54" fill="var(--azul)">${fmt(e.minL)} L</text>
+    <text x="${x(e.maxL)}" y="${Y + 100}" text-anchor="middle" font-family="Chewy, cursive" font-size="54" fill="var(--azul)">${fmt(e.maxL)} L</text>
+  </svg>`;
+}
+
+/* Crea 2 pantallas por ejemplo (tarjeta y gráfico) y las pone después de "Plan lector" */
+function armarEjemplos() {
+  const html = EJEMPLOS.map((e, i) => {
+    const frase = e.texto.replace('{min}', fmt(e.minL)).replace('{max}', fmt(e.maxL));
+    return `
+    <!-- Ejemplo ${i + 1} (a): tarjeta -->
+    <section class="slide con-marco" data-tab="lector">
+      <div class="pantalla">
+        <article class="ficha">
+          <div class="ficha-arte">${ICONOS[e.icono]}</div>
+          <div class="ficha-cuerpo">
+            <div class="chips"><span class="chip">Ejemplo ${i + 1} de ${EJEMPLOS.length}</span>${e.fuente ? `<span class="chip">${e.fuente}</span>` : ''}</div>
+            <h4>${e.nombre}</h4>
+            <p>${frase}</p>
+            <div class="ficha-dato"><b>¿Sabías que…?</b>${e.dato}</div>
+            <div class="ficha-botones">
+              <button class="btn" onclick="abrirBarra(${i}); this.blur()">Probar en la barra →</button>
+              <button class="btn btn-suave" onclick="abrirLab(${i}); this.blur()">Ver en el laboratorio →</button>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+    <!-- Ejemplo ${i + 1} (b): gráfico -->
+    <section class="slide con-marco" data-tab="lector">
+      <div class="pantalla">
+        <div class="grafico-titulo">${e.nombre}</div>
+        <div class="grafico-sub">Litros de agua al día</div>
+        ${rectaRango(e)}
+        <div class="frase-grafico">Entre ${fmt(e.minL)} y ${fmt(e.maxL)} litros al día.</div>
+      </div>
+    </section>`;
+  }).join('');
+  document.getElementById('plan-lector-slide').insertAdjacentHTML('afterend', html);
+}
+
+/* Botón "Probar en la barra": guarda el ejemplo elegido y abre la pestaña Barra */
+let barraActual = null;
+function abrirBarra(i) {
+  barraActual = EJEMPLOS[i];   // la Barra toma minL y maxL de aquí
+  irPestana('barra');          // goTo() llama a entrarBarra() y dibuja los límites
+}
+
+/* Botón "Ver en el laboratorio": el laboratorio y la barra comparten el ejemplo elegido */
+function abrirLab(i) {
+  barraActual = EJEMPLOS[i];
+  labCargado = null;           // fuerza a recargar el ejemplo aunque ya estuviera abierto
+  irPestana('lab');
+}
+
+/* ============================================================
+   D. BARRA: aguja automática / manual y zonas de color
+   Los límites salen del ejemplo elegido. Si se entra directo
+   a la pestaña, se usa "Persona adulta promedio" (EJEMPLOS[0]).
+   ============================================================ */
+let modoBarra = 'auto';
+
+/* Estado de la aguja. "tope" es el extremo derecho de la barra:
+   minL + maxL, así la zona verde queda justo en el centro. */
+const aguja = { min: 1.5, max: 2, tope: 3.5, valor: 0, dir: 1, corriendo: false, raf: 0, ultimo: 0 };
+
+/* Se llama al entrar a la pestaña Barra: toma el ejemplo y dibuja las zonas */
+function entrarBarra() {
+  const e = barraActual || EJEMPLOS[0];
+
+  aguja.min = e.minL;
+  aguja.max = e.maxL;
+  aguja.tope = +(e.minL + e.maxL).toFixed(2);
+
+  const anchoRojo  = aguja.min / aguja.tope * 100;
+  const anchoVerde = (aguja.max - aguja.min) / aguja.tope * 100;
+
+  document.getElementById('zona-roja').style.width = anchoRojo + '%';
+  document.getElementById('zona-verde').style.width = anchoVerde + '%';
+  document.getElementById('zona-amarilla').style.width = (100 - anchoRojo - anchoVerde) + '%';
+
+  // Las dos líneas pequeñas marcan dónde cambia el color (sin texto)
+  document.getElementById('marca-min').style.left = anchoRojo + '%';
+  document.getElementById('marca-max').style.left = (anchoRojo + anchoVerde) + '%';
+
+  document.getElementById('escala-tope').textContent = fmt(aguja.tope) + ' L';
+  document.getElementById('ejemplo-num').textContent = 'Ejemplo ' + (EJEMPLOS.indexOf(e) + 1) + ' de ' + EJEMPLOS.length;
+  document.getElementById('ejemplo-nombre').textContent = e.nombre;
+
+  const s = document.getElementById('slider');
+  s.max = aguja.tope; s.step = 0.1; s.value = 0;
+
+  aguja.valor = 0;
+  aguja.dir = 1;
+  setModo('auto');      // cada vez que se entra, arranca en automático
+  pintarBarra();
+}
+
+/* Cambia entre Automático y Manual */
+function setModo(m) {
+  modoBarra = m;
+  document.getElementById('modo-auto').classList.toggle('on', m === 'auto');
+  document.getElementById('modo-manual').classList.toggle('on', m === 'manual');
+  document.getElementById('auto-tip').hidden = m !== 'auto';
+  document.getElementById('manual-tip').hidden = m !== 'manual';
+
+  if (m === 'auto') {
+    arrancarAguja();
+  } else {
+    cancelarAguja();
+    document.getElementById('slider').value = aguja.valor;
+    pintarBarra();
+  }
+}
+
+function arrancarAguja() {
+  cancelarAguja();
+  aguja.corriendo = true;
+  aguja.ultimo = 0;
+  aguja.raf = requestAnimationFrame(animarAguja);
+  actualizarPista();
+}
+
+function cancelarAguja() {
+  if (aguja.raf) cancelAnimationFrame(aguja.raf);
+  aguja.raf = 0;
+  aguja.ultimo = 0;
+  aguja.corriendo = false;
+}
+
+function pausarAguja() { cancelarAguja(); }
+
+/* La aguja va y viene de 0 al tope (un recorrido completo dura ~4,6 s) */
+function animarAguja(t) {
+  if (modoBarra !== 'auto' || !aguja.corriendo) return;
+
+  if (!aguja.ultimo) aguja.ultimo = t;
+  const dt = Math.min(t - aguja.ultimo, 50);   // salto máximo, por si la pestaña estuvo oculta
+  aguja.ultimo = t;
+
+  const velocidad = aguja.tope / 4600;         // litros por milisegundo
+  aguja.valor += aguja.dir * velocidad * dt;
+
+  if (aguja.valor >= aguja.tope) { aguja.valor = aguja.tope; aguja.dir = -1; }
+  else if (aguja.valor <= 0)     { aguja.valor = 0;          aguja.dir = 1; }
+
+  pintarBarra();
+  aguja.raf = requestAnimationFrame(animarAguja);
+}
+
+/* Barra espaciadora: detiene la aguja o la vuelve a mover */
+function detenerOReanudar() {
+  if (modoBarra !== 'auto') return;
+  if (aguja.corriendo) cancelarAguja();
+  else arrancarAguja();
+  actualizarPista();
+}
+
+function actualizarPista() {
+  if (modoBarra !== 'auto') return;
+  document.getElementById('auto-tip').innerHTML = aguja.corriendo
+    ? 'La aguja va y viene sola · <kbd>Espacio</kbd> para detenerla'
+    : 'Aguja detenida · <kbd>Espacio</kbd> para volver a moverla';
+}
+
+/* Modo manual: el deslizador elige el valor */
+function moverManual(v) {
+  aguja.valor = Math.max(0, Math.min(aguja.tope, +v));
+  pintarBarra();
+}
+
+/* Muestra el valor en litros y la zona en la que cae */
+function pintarBarra() {
+  const pct = aguja.tope ? (aguja.valor / aguja.tope * 100) : 0;
+  document.getElementById('aguja').style.left = pct + '%';
+  document.getElementById('valor').textContent = fmt(aguja.valor.toFixed(1)) + ' L';
+
+  const pill = document.getElementById('zona-pill');
+  let texto, clase;
+  if (aguja.valor < aguja.min)       { texto = 'Poca agua';         clase = 'z-roja'; }
+  else if (aguja.valor <= aguja.max) { texto = 'Cantidad adecuada'; clase = 'z-verde'; }
+  else                               { texto = 'Demasiada agua';    clase = 'z-amarilla'; }
+
+  pill.textContent = texto;
+  pill.className = 'zona-pill ' + clase;
+
+  const s = document.getElementById('slider');
+  if (s !== document.activeElement) s.value = aguja.valor;   // no molesta mientras se arrastra
+}
+
+/* ============================================================
+   D2. LABORATORIO: el intervalo de agua en la recta
+   El ejemplo elegido en la barra o en las fichas también se carga
+   aquí. Los valores se redondean a una décima de litro.
+   ============================================================ */
+const PAD_LAB = 6;                       // margen (en %) a cada lado de la recta
+const red1 = v => Math.round(v * 10) / 10;
+const fmtL = v => fmt(red1(v));          // 1.5 → "1,5"; 2 → "2"
+
+/* Estado inicial del laboratorio: persona adulta promedio */
+let lab = {
+  a: 1.5, b: 2, leftOpen: false, rightOpen: false,
+  scaleMin: 0, scaleMax: 3.5,
+  nombre: 'Persona adulta promedio', fuente: 'OMS'
+};
+let labCargado = null;                   // nombre del ejemplo que está cargado
+let lineaLabOculta = false;
+
+/* Botones de ejemplo de la pestaña Laboratorio */
+function armarLabEjemplos() {
+  document.getElementById('lab-ejemplos').innerHTML = EJEMPLOS.map((e, i) =>
+    `<button class="lab-ejemplo-btn" data-ejemplo="${i}" onclick="elegirEjemploLab(${i}); this.blur()">${e.nombre}</button>`
+  ).join('');
+}
+
+/* Carga un ejemplo de la lista en el laboratorio */
+function cargarEjemploLab(e) {
+  lab = {
+    a: e.minL,
+    b: e.maxL,
+    leftOpen: false,
+    rightOpen: false,
+    scaleMin: 0,
+    // El tope se redondea a media unidad para que la recta termine limpia.
+    scaleMax: Math.max(3, Math.ceil((e.minL + e.maxL) * 2) / 2),
+    nombre: e.nombre,
+    fuente: e.fuente || ''
+  };
+  labCargado = e.nombre;
+  renderLab();
+}
+
+/* Se llama al entrar a la pestaña Laboratorio */
+function entrarLab() {
+  const e = barraActual || EJEMPLOS[0];
+  if (labCargado !== e.nombre) cargarEjemploLab(e);
+}
+
+/* Un chip del laboratorio: además deja sincronizada la barra */
+function elegirEjemploLab(i) {
+  barraActual = EJEMPLOS[i];
+  cargarEjemploLab(EJEMPLOS[i]);
+}
+
+/* Dibuja el título de la fuente, las tarjetas y la recta */
+function renderLab() {
+  document.querySelectorAll('.lab-ejemplo-btn').forEach(btn => {
+    const e = EJEMPLOS[Number(btn.dataset.ejemplo)];
+    btn.classList.toggle('on', e.nombre === lab.nombre);
+  });
+
+  const pill = document.getElementById('lab-fuente');
+  const f = lab.fuente || '';
+  pill.textContent = (f === 'OMS' || f === 'Fundación Aquae') ? 'Fuente: ' + f : f;
+  pill.hidden = !f;
+
+  document.getElementById('lab-select-left').value = lab.leftOpen ? 'open' : 'closed';
+  document.getElementById('lab-select-right').value = lab.rightOpen ? 'open' : 'closed';
+
+  actualizarTarjetasLab();
+  dibujarRectaLab();
+}
+
+/* Textos que usan el laboratorio y las actividades (abierto = < y paréntesis; cerrado = ≤ y corchete) */
+function textoDesigualdad(a, b, aAbierto, bAbierto) {
+  return `${fmtL(a)} ${aAbierto ? '<' : '≤'} x ${bAbierto ? '<' : '≤'} ${fmtL(b)}`;
+}
+function textoIntervalo(a, b, aAbierto, bAbierto) {
+  return `${aAbierto ? '(' : '['}${fmtL(a)}; ${fmtL(b)}${bAbierto ? ')' : ']'}`;
+}
+
+/* Tarjetas: desigualdad, notación y amplitud */
+function actualizarTarjetasLab() {
+  const { a, b, leftOpen, rightOpen } = lab;
+  document.getElementById('lab-card-inequality').textContent = textoDesigualdad(a, b, leftOpen, rightOpen);
+  document.getElementById('lab-card-notation').textContent = textoIntervalo(a, b, leftOpen, rightOpen);
+  document.getElementById('lab-card-amplitude').textContent = `${fmtL(b - a)} L`;
+}
+
+/* Valor en litros → posición (%) sobre la recta */
+function posLab(v, e = lab) {          // e = datos de la recta (por defecto, el laboratorio)
+  return PAD_LAB + ((v - e.scaleMin) / (e.scaleMax - e.scaleMin)) * (100 - 2 * PAD_LAB);
+}
+
+/* Marca de separación de la recta: 0,5 L para escalas normales; 1 L si es muy larga */
+function pasoLab(range) { return range > 5.5 ? 1 : 0.5; }
+
+/* Dibuja eje, marcas, barra, tallos y círculos de los extremos.
+   Sin argumentos dibuja el laboratorio (como siempre). Las actividades la reutilizan así:
+   destino = elemento donde dibujar, e = datos {a, b, leftOpen, rightOpen, scaleMin, scaleMax},
+   nivel = 1 solo eje y números · 2 + extremos con su punto · 3 + tramo resaltado,
+   animar = true para que el tramo "crezca". */
+function dibujarRectaLab(destino = document.getElementById('recta-lab'), e = lab, nivel = 3, animar = false) {
+  const { a, b, leftOpen, rightOpen, scaleMin, scaleMax } = e;
+  const interactiva = destino.id === 'recta-lab';      // solo el laboratorio se puede arrastrar
+  const range = scaleMax - scaleMin;
+  const step = pasoLab(range);
+  const extremos = [a, b];
+
+  let html = '<div class="lab-eje"></div>';
+
+  // marcas normales (desde el nivel 2 se omiten las que quedan muy cerca de un extremo)
+  const n = Math.floor(range / step + 1e-6);
+  for (let i = 0; i <= n; i++) {
+    const v = red1(scaleMin + i * step);
+    if (v > scaleMax + 1e-6) break;
+    if (nivel >= 2 && extremos.some(x => Math.abs(v - x) < 0.25)) continue;
+    html += `<div class="lab-tick" style="left:${posLab(v, e)}%"><i></i><span>${fmtL(v)}</span></div>`;
+  }
+
+  const left = posLab(a, e);
+  const right = posLab(b, e);
+
+  // marcas verdes de los dos extremos
+  if (nivel >= 2) {
+    html += `<div class="lab-tick extremo" style="left:${left}%"><i></i><span>${fmtL(a)}</span></div>`;
+    html += `<div class="lab-tick extremo" style="left:${right}%"><i></i><span>${fmtL(b)}</span></div>`;
+  }
+
+  // tramo resaltado
+  if (nivel >= 3) {
+    html += `<div ${interactiva ? 'id="lab-barra"' : ''} class="lab-barra ${animar ? 'anim' : ''}" style="left:${left}%;width:${right - left}%"></div>`;
+  }
+
+  // tallos y círculos (abierto = blanco, cerrado = lleno)
+  if (nivel >= 2) {
+    html += `<div class="lab-tallo" style="left:${left}%"></div>`;
+    html += `<div class="lab-tallo" style="left:${right}%"></div>`;
+    html += `<div ${interactiva ? 'id="lab-punto-a"' : ''} class="lab-punto ${leftOpen ? 'abierto' : ''}" style="left:${left}%"></div>`;
+    html += `<div ${interactiva ? 'id="lab-punto-b"' : ''} class="lab-punto ${rightOpen ? 'abierto' : ''}" style="left:${right}%"></div>`;
+  }
+
+  destino.innerHTML = html;
+  if (interactiva) attachDragLab();
+}
+
+/* Un intervalo modificado deja de ser el ejemplo: pasa a ser de práctica */
+function marcarPractica() {
+  lab.nombre = 'Intervalo de práctica';
+  lab.fuente = 'Intervalo de práctica';
+  document.querySelectorAll('.lab-ejemplo-btn').forEach(b => b.classList.remove('on'));
+  const pill = document.getElementById('lab-fuente');
+  pill.textContent = 'Intervalo de práctica';
+  pill.hidden = false;
+}
+
+/* ---- Arrastrar con ratón o dedo ---- */
+function attachDragLab() {
+  const crear = (id, kind) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('pointerdown', e => {
+      const rect = document.getElementById('recta-lab').getBoundingClientRect();
+      const drag = { kind, startX: e.clientX, a0: lab.a, b0: lab.b, rect };
+      el.setPointerCapture(e.pointerId);
+      el.onpointermove = ev => onDragLab(ev, drag);
+      el.onpointerup = () => { el.onpointermove = null; el.onpointerup = null; };
+      e.preventDefault();
+    });
+  };
+  crear('lab-punto-a', 'a');
+  crear('lab-punto-b', 'b');
+  crear('lab-barra', 'barra');
+}
+
+function onDragLab(e, d) {
+  const range = lab.scaleMax - lab.scaleMin;
+  const dv = ((e.clientX - d.startX) / d.rect.width) * 100 / (100 - 2 * PAD_LAB) * range;
+  const limitar = v => Math.max(lab.scaleMin, Math.min(lab.scaleMax, red1(v)));
+
+  if (d.kind === 'a') {
+    let v = limitar(d.a0 + dv);
+    v = Math.min(v, red1(lab.b - 0.2));
+    lab.a = Math.max(lab.scaleMin, red1(v));
+  } else if (d.kind === 'b') {
+    let v = limitar(d.b0 + dv);
+    v = Math.max(v, red1(lab.a + 0.2));
+    lab.b = Math.min(lab.scaleMax, red1(v));
+  } else {
+    const span = red1(d.b0 - d.a0);
+    let na = limitar(d.a0 + dv);
+    na = Math.max(lab.scaleMin, Math.min(lab.scaleMax - span, red1(na)));
+    lab.a = red1(na);
+    lab.b = red1(na + span);
+  }
+
+  marcarPractica();
+  actualizarTarjetasLab();
+  dibujarRectaLab();
+
+  // El dibujo se rehace: hay que volver a capturar el puntero en el nuevo elemento.
+  const again = document.getElementById(d.kind === 'a' ? 'lab-punto-a' : d.kind === 'b' ? 'lab-punto-b' : 'lab-barra');
+  if (again) {
+    try { again.setPointerCapture(e.pointerId); } catch (_) {}
+    again.onpointermove = ev => onDragLab(ev, d);
+    again.onpointerup = () => { again.onpointermove = null; again.onpointerup = null; };
+  }
+}
+
+/* ---- Cambiar el tipo de extremo (sin alterar los litros) ---- */
+function cambiarExtremo(side, val) {
+  if (side === 'left') lab.leftOpen = val === 'open';
+  else lab.rightOpen = val === 'open';
+  actualizarTarjetasLab();
+  dibujarRectaLab();
+}
+
+/* ---- Mostrar / ocultar la recta ---- */
+function mostrarRectaLab() {
+  lineaLabOculta = false;
+  document.getElementById('recta-lab').hidden = false;
+  document.getElementById('recta-oculta-lab').hidden = true;
+  document.getElementById('lab-btn-hide').textContent = '🙈 Ocultar recta';
+}
+
+function alternarRectaLab() {
+  if (lineaLabOculta) { mostrarRectaLab(); return; }
+  lineaLabOculta = true;
+  document.getElementById('recta-lab').hidden = true;
+  document.getElementById('recta-oculta-lab').hidden = false;
+  document.getElementById('lab-btn-hide').textContent = '👁 Mostrar recta';
+}
+
+/* ---- Generar un intervalo de práctica ---- */
+function generarIntervaloAleatorio() {
+  const a = red1(0.5 + Math.random() * 2);
+  const b = red1(a + 0.3 + Math.random() * 1);
+  const margen = Math.max(0.6, (b - a) * 0.4);
+
+  lab.a = a;
+  lab.b = b;
+  lab.leftOpen = Math.random() < 0.5;
+  lab.rightOpen = Math.random() < 0.5;
+  lab.scaleMin = 0;
+  lab.scaleMax = Math.max(3, Math.ceil((b + margen) * 2) / 2);
+  marcarPractica();
+  mostrarRectaLab();
+  renderLab();
+}
+
+/* ---- Restablecer al ejemplo que está seleccionado ---- */
+function resetLab() {
+  mostrarRectaLab();
+  cargarEjemploLab(barraActual || EJEMPLOS[0]);
+}
+
+/* ---- Ventana para escribir un intervalo ---- */
+function abrirModalLab() {
+  const modal = document.getElementById('modal-lab');
+  document.getElementById('lab-modal-a').value = lab.a;
+  document.getElementById('lab-modal-b').value = lab.b;
+  document.getElementById('lab-modal-left').value = lab.leftOpen ? 'open' : 'closed';
+  document.getElementById('lab-modal-right').value = lab.rightOpen ? 'open' : 'closed';
+  document.getElementById('lab-modal-error').hidden = true;
+  modal.classList.add('abierto');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function cerrarModalLab() {
+  const modal = document.getElementById('modal-lab');
+  modal.classList.remove('abierto');
+  modal.setAttribute('aria-hidden', 'true');
+  document.getElementById('lab-modal-error').hidden = true;
+}
+
+function aplicarIntervaloManual() {
+  const err = document.getElementById('lab-modal-error');
+  const fallar = msg => { err.textContent = msg; err.hidden = false; };
+  err.hidden = true;
+
+  const leer = id => parseFloat(String(document.getElementById(id).value).replace(',', '.'));
+  const a = leer('lab-modal-a');
+  const b = leer('lab-modal-b');
+
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return fallar('Escribe dos cantidades válidas.');
+  if (a < 0 || b < 0) return fallar('La cantidad de agua no puede ser negativa.');
+  if (b > 10) return fallar('Para este laboratorio, usa valores de hasta 10 litros.');
+
+  const ar = red1(a);
+  const br = red1(b);
+  if (ar >= br) return fallar('El extremo a debe ser menor que el extremo b.');
+
+  const margen = Math.max(0.6, (br - ar) * 0.4);
+  lab.a = ar;
+  lab.b = br;
+  lab.leftOpen = document.getElementById('lab-modal-left').value === 'open';
+  lab.rightOpen = document.getElementById('lab-modal-right').value === 'open';
+  lab.scaleMin = 0;
+  lab.scaleMax = Math.max(2, Math.ceil((br + margen) * 2) / 2);
+  marcarPractica();
+  cerrarModalLab();
+  mostrarRectaLab();
+  renderLab();
+}
+
+/* ============================================================
+   F. ACTIVIDADES: plantilla de pantallas con revelado progresivo
+   Cada elemento de ACTIVIDADES crea UNA pantalla (después de Laboratorio).
+   Campos:
+     titulo, contexto (opcional), pregunta,
+     imagen   {archivo, credito, alt}   solo de adorno: sin números ni datos,
+     solucion {a, b, aAbierto, bAbierto}   de aquí sale TODO el dibujo,
+     explicacion  (breve: unas 150 letras como máximo, para que quepa),
+     respuesta (opcional: si falta se calcula con la desigualdad y el intervalo).
+   ============================================================ */
+const ACTIVIDADES = [
+  { titulo: 'Agua para el día',
+    contexto: 'Según la OMS, una persona adulta debe tomar como mínimo 1,5 L y como máximo 2 L de agua al día.',
+    pregunta: '¿Qué cantidades x de agua, en litros, cumplen la recomendación?',
+    imagen: { archivo: 'imagenes/vaso-agua.jpg',                  // VERIFICAR: poner la foto real en esa carpeta
+              credito: 'Foto: VERIFICAR autor y licencia',        // VERIFICAR: crédito real
+              alt: 'Un vaso de agua' },
+    solucion: { a: 1.5, b: 2, aAbierto: false, bAbierto: false },
+    explicacion: '«Como mínimo» y «como máximo» sí incluyen el 1,5 y el 2: los puntos son cerrados y se escribe con corchetes [ ].' },
+
+  { titulo: 'Caminata con agua',
+    contexto: 'En una caminata de 3 horas, el guía pide llevar más de 1 L pero no más de 2,5 L de agua por persona.',   // VERIFICAR: valores de ejemplo
+    pregunta: '¿Cuántos litros x de agua puede llevar cada persona?',
+    imagen: { archivo: 'imagenes/caminata.jpg',                   // VERIFICAR: poner la foto real en esa carpeta
+              credito: 'Foto: VERIFICAR autor y licencia',        // VERIFICAR: crédito real
+              alt: 'Un grupo caminando por un sendero' },
+    solucion: { a: 1, b: 2.5, aAbierto: true, bAbierto: false },
+    explicacion: '«Más de 1» no incluye el 1: punto abierto y paréntesis (. «No más de 2,5» sí lo incluye: punto cerrado y corchete ].' }
+];
+
+const ACT_PASOS = 6;   // 1 consigna · 2 recta · 3 extremos · 4 tramo · 5 explicación · 6 RPTA
+
+/* Dibujo simple (una gota y olas) que se muestra si la imagen no carga */
+const ACT_SVG_ADORNO = '<svg viewBox="0 0 220 192" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Dibujo de una gota de agua">' +
+  '<rect width="220" height="192" fill="#e3f6ff"/>' +
+  '<path d="M110 26 C90 60 60 90 60 124 a50 50 0 0 0 100 0 C160 90 130 60 110 26 Z" fill="#00bcf2"/>' +
+  '<path d="M84 118 a26 26 0 0 0 16 30" stroke="#fff" stroke-width="7" fill="none" stroke-linecap="round" opacity=".8"/>' +
+  '<path d="M0 166 Q27 151 55 166 T110 166 T165 166 T220 166 V192 H0 Z" fill="#0070c0" opacity=".85"/></svg>';
+
+/* Si la foto no carga, la cambia por el dibujo y el crédito pasa a decir "Ilustración" */
+function actImgFallo(img) {
+  const marco = img.parentNode;
+  marco.innerHTML = ACT_SVG_ADORNO;
+  const cred = marco.parentNode.querySelector('.act-credito');
+  if (cred) cred.textContent = 'Ilustración';
+}
+
+/* Respuesta: la escrita a mano o, si falta, "desigualdad → intervalo" calculados de solucion */
+function respuestaAct(a) {
+  if (a.respuesta) return a.respuesta;
+  const s = a.solucion;
+  return `${textoDesigualdad(s.a, s.b, s.aAbierto, s.bAbierto)}  →  ${textoIntervalo(s.a, s.b, s.aAbierto, s.bAbierto)}`;
+}
+
+/* Datos de solucion → formato que entiende dibujarRectaLab (la recta sale de 0 a un tope redondo) */
+function rectaDeSolucion(s) {
+  return { a: s.a, b: s.b, leftOpen: !!s.aAbierto, rightOpen: !!s.bAbierto,
+           scaleMin: 0, scaleMax: Math.max(3, Math.ceil((s.b + 0.5) * 2) / 2) };
+}
+
+/* Crea una pantalla por actividad, justo después de Laboratorio */
+function armarActividades() {
+  const comilla = t => String(t).replace(/"/g, '&quot;');
+  const html = ACTIVIDADES.map((a, i) => {
+    const im = a.imagen;
+    const foto = im && im.archivo
+      ? `<img src="${comilla(im.archivo)}" alt="${comilla(im.alt || '')}" onerror="actImgFallo(this)">`
+      : ACT_SVG_ADORNO;
+    return `
+    <section class="slide con-marco" data-tab="act" data-act="${i}" data-paso="1">
+      <div class="pantalla act-pantalla">
+        <div class="act-titulo">
+          <span class="chip">Actividad ${i + 1} de ${ACTIVIDADES.length}</span>
+          <h2>${a.titulo}</h2>
+          <span class="act-paso"></span>
+        </div>
+        <div class="act-consigna">
+          <div class="act-contexto">${a.contexto || ''}</div>
+          <div class="pregunta">${a.pregunta}</div>
+        </div>
+        <div class="act-fila">
+          <figure class="act-foto">
+            <div class="act-img">${foto}</div>
+            <figcaption class="act-credito">${im && im.archivo ? (im.credito || '') : 'Ilustración'}</figcaption>
+          </figure>
+          <div class="act-modelo">
+            <h3>Modelización · recta numérica</h3>
+            <div class="lab-oculta act-cuaderno">✍️ Resuelve en tu cuaderno</div>
+            <div class="lab-recta act-recta" hidden></div>
+          </div>
+          <div class="act-expl-zona">
+            <div class="ficha-dato act-expl act-vel"><b>Explicación</b>${a.explicacion}</div>
+          </div>
+        </div>
+        <div class="act-rpta"><span class="rotulo">RPTA</span><span class="texto act-vel">${respuestaAct(a)}</span></div>
+      </div>
+    </section>`;
+  }).join('');
+  document.getElementById('laboratorio-slide').insertAdjacentHTML('afterend', html);
+}
+
+/* Muestra u oculta cada zona según el paso (1 a 6). Las zonas nunca se mueven. */
+function pintarAct(sec) {
+  const a = ACTIVIDADES[+sec.dataset.act];
+  const paso = +sec.dataset.paso;
+  const q = sel => sec.querySelector(sel);
+
+  q('.act-paso').textContent = `Paso ${paso} de ${ACT_PASOS}`;
+  q('.act-cuaderno').hidden = paso !== 1;     // paso 1: "Resuelve en tu cuaderno"
+  q('.act-recta').hidden = paso < 2;          // desde el paso 2: la recta
+  if (paso >= 2) {
+    // paso 2 → nivel 1 (números) · paso 3 → nivel 2 (extremos) · paso 4 o más → nivel 3 (tramo)
+    dibujarRectaLab(q('.act-recta'), rectaDeSolucion(a.solucion), Math.min(paso, 4) - 1, paso === 4);
+  }
+  q('.act-expl').classList.toggle('ver', paso >= 5);
+  q('.act-rpta .texto').classList.toggle('ver', paso >= 6);
+}
+
+/* Pantalla de actividad que se está viendo (o null si es otra) */
+const actActual = () => (slides[cur] && slides[cur].dataset.tab === 'act') ? slides[cur] : null;
+
+/* Devuelven true si el paso se movió dentro de la actividad; false = ya no hay más pasos, que cambie la pantalla */
+function avanzarAct() {
+  const s = actActual();
+  if (!s || +s.dataset.paso >= ACT_PASOS) return false;
+  s.dataset.paso = +s.dataset.paso + 1;
+  pintarAct(s);
+  return true;
+}
+function retrocederAct() {
+  const s = actActual();
+  if (!s || +s.dataset.paso <= 1) return false;
+  s.dataset.paso = +s.dataset.paso - 1;
+  pintarAct(s);
+  return true;
+}
+
+/* Al llegar a una actividad: paso 1 (o completa si se viene de la siguiente pantalla) */
+function entrarAct(sec, alFinal) {
+  sec.dataset.paso = alFinal ? ACT_PASOS : 1;
+  pintarAct(sec);
+}
+
+/* ============================================================
+   E. INICIO
+   ============================================================ */
+initSlides();
+</script>
+</body>
+</html>
